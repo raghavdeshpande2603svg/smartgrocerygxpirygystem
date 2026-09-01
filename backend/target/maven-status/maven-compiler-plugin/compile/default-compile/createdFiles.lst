@@ -1,0 +1,10 @@
+com\smartgrocery\ocr\ParsedBillItem.class
+com\smartgrocery\service\CategoryMatchingService$CategoryMatchResult.class
+com\smartgrocery\service\OCRTextParserService.class
+com\smartgrocery\service\ExpiryStatusService.class
+com\smartgrocery\SmartGroceryApplication.class
+com\smartgrocery\controller\BillController.class
+com\smartgrocery\service\CategoryMatchingService.class
+com\smartgrocery\controller\AuthController.class
+com\smartgrocery\config\SecurityConfig.class
+com\smartgrocery\service\BillProcessingService.class

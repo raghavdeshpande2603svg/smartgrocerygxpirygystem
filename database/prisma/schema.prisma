@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum BillStatus {
+  uploaded
+  processing
+  processed
+  failed
+}
+
+enum InventoryStatus {
+  fresh
+  expiring_soon
+  expired
+}
+
+model User {
+  id           BigInt        @id @default(autoincrement())
+  name         String
+  email        String        @unique
+  passwordHash String        @map("password_hash")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  bills        Bill[]
+  inventory    InventoryItem[]
+
+  @@map("users")
+}
+
+model Category {
+  id           Int            @id @default(autoincrement())
+  name         String         @unique
+  createdAt    DateTime       @default(now()) @map("created_at")
+  products     Product[]
+  inventory    InventoryItem[]
+
+  @@map("categories")
+}
+
+model Product {
+  id                    BigInt          @id @default(autoincrement())
+  name                  String
+  categoryName          String          @map("category")
+  defaultShelfLifeDays  Int             @map("default_shelf_life_days")
+  createdAt             DateTime        @default(now()) @map("created_at")
+  category              Category        @relation(fields: [categoryName], references: [name])
+  inventoryItems        InventoryItem[]
+
+  @@unique([name, categoryName])
+  @@index([categoryName])
+  @@map("products")
+}
+
+model Bill {
+  id           BigInt          @id @default(autoincrement())
+  userId       BigInt          @map("user_id")
+  imagePath    String          @map("image_path")
+  uploadedAt   DateTime        @default(now()) @map("uploaded_at")
+  ocrRawText   String?         @map("ocr_raw_text")
+  status       BillStatus      @default(uploaded)
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  inventory    InventoryItem[]
+
+  @@index([userId])
+  @@map("bills")
+}
+
+model InventoryItem {
+  id            BigInt          @id @default(autoincrement())
+  userId        BigInt          @map("user_id")
+  billId        BigInt?         @map("bill_id")
+  productId     BigInt          @map("product_id")
+  quantity      Decimal         @db.Decimal(10, 2)
+  unit          String          @default("pcs")
+  purchaseDate  DateTime        @map("purchase_date")
+  expiryDate    DateTime        @map("expiry_date")
+  categoryName  String          @map("category")
+  status        InventoryStatus @default(fresh)
+  createdAt     DateTime        @default(now()) @map("created_at")
+
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bill          Bill?           @relation(fields: [billId], references: [id], onDelete: SetNull)
+  product       Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  category      Category        @relation(fields: [categoryName], references: [name])
+
+  @@index([userId])
+  @@index([expiryDate])
+  @@index([status])
+  @@map("inventory_items")
+}
