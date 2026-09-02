@@ -159,7 +159,18 @@ export default function App() {
       purchaseOrders: orders.length,
     }]), 'Backup Info');
 
-    XLSX.writeFile(workbook, 'smart-grocery-backup.xlsx');
+    const workbookBytes = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([workbookBytes], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'smart-grocery-backup.xlsx';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
   }
 
   function handleImportInventory(event) {
