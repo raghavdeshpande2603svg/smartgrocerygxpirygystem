@@ -59,9 +59,9 @@ function DashboardChart() {
 
   return (
     <div className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm">
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-4 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="text-lg font-semibold text-slate-800">{title}</h3>
-        <div className="flex gap-2 rounded-full bg-emerald-50 p-1">
+        <div className="flex w-full flex-wrap gap-2 rounded-full bg-emerald-50 p-1 sm:w-auto">
           {['day', 'week', 'month', 'year'].map((item) => (
             <button
               key={item}

@@ -215,7 +215,7 @@ export default function App() {
           </div>
         </header>
 
-        <section className="mb-6 grid gap-4 md:grid-cols-4">
+        <section className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
           <StatCard title="Total Items" value={String(dashboardStats.totalItems)} tone="green" />
           <StatCard title="Monthly Spend" value={`₹${dashboardStats.totalCost}`} tone="leaf" />
           <StatCard title="Expiring Soon" value={String(dashboardStats.expiringSoon)} tone="yellow" />
