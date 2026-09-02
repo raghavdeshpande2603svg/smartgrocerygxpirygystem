@@ -165,14 +165,14 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#f6fff2,_#eefaf0_30%,_#edf7ef_100%)] p-6 text-slate-800">
+    <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,_#f6fff2,_#eefaf0_30%,_#edf7ef_100%)] p-3 text-slate-800 sm:p-6">
       <div className="mx-auto max-w-7xl">
-        <header className="mb-6 flex items-center justify-between gap-4 rounded-[28px] border border-emerald-200 bg-white/80 p-5 shadow-[0_18px_45px_rgba(34,197,94,0.08)] backdrop-blur-sm">
-          <div>
+        <header className="mb-6 flex flex-col items-start gap-4 rounded-[28px] border border-emerald-200 bg-white/80 p-4 shadow-[0_18px_45px_rgba(34,197,94,0.08)] backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between sm:p-5">
+          <div className="min-w-0">
             <p className="text-sm font-semibold uppercase tracking-[0.28em] text-emerald-700">Smart Grocery</p>
-            <h1 className="mt-2 text-3xl font-bold text-slate-800">Expiry Management Dashboard</h1>
+            <h1 className="mt-2 text-2xl font-bold text-slate-800 sm:text-3xl">Expiry Management Dashboard</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
             <button
               type="button"
               onClick={() => setActiveView('purchase')}
@@ -208,7 +208,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => setIsModalOpen(true)}
-              className="rounded-xl bg-gradient-to-r from-emerald-600 to-lime-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/20 transition hover:translate-y-[-1px] hover:shadow-xl"
+              className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-lime-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/20 transition hover:translate-y-[-1px] hover:shadow-xl sm:w-auto"
             >
               + Add Item
             </button>
