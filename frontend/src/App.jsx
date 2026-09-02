@@ -7,6 +7,7 @@ import AddItemModal from './components/AddItemModal';
 import PurchasePage from './components/PurchasePage';
 
 const STORAGE_KEY = 'smart-grocery-inventory-v1';
+const PURCHASES_STORAGE_KEY = 'smart-grocery-purchases-v1';
 const STORAGE_DEBOUNCE_MS = 1000; // Write to localStorage only every 1 second
 
 const defaultInventory = [
@@ -131,9 +132,18 @@ export default function App() {
   }
 
   function handleBackupInventory() {
+    let purchaseData = null;
+    try {
+      const savedPurchases = localStorage.getItem(PURCHASES_STORAGE_KEY);
+      purchaseData = savedPurchases ? JSON.parse(savedPurchases) : null;
+    } catch {
+      purchaseData = null;
+    }
+
     const backup = {
       exportedAt: new Date().toISOString(),
       items: inventory,
+      purchaseData,
     };
 
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
@@ -156,6 +166,9 @@ export default function App() {
         const importedItems = Array.isArray(parsed) ? parsed : parsed.items || [];
         if (!Array.isArray(importedItems) || !importedItems.length) return;
         setInventory(importedItems);
+        if (!Array.isArray(parsed) && parsed.purchaseData) {
+          localStorage.setItem(PURCHASES_STORAGE_KEY, JSON.stringify(parsed.purchaseData));
+        }
       } catch {
         // Ignore invalid file content.
       }
