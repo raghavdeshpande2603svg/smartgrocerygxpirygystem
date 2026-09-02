@@ -222,7 +222,7 @@ export default function App() {
           <StatCard title="Avg Cost" value={`₹${dashboardStats.avgCost}`} tone="orange" />
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+        <section className="grid gap-6 md:grid-cols-[1.2fr_0.8fr]">
           <UploadBillPanel onUploadComplete={handleUploadComplete} />
           <div className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm">
             <h3 className="mb-4 text-lg font-semibold text-slate-800">Notifications</h3>
@@ -252,7 +252,7 @@ export default function App() {
           </div>
         </section>
 
-        <section className="mt-6 grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
+        <section className="mt-6 grid gap-6 md:grid-cols-[1.3fr_0.7fr]">
           <InventoryTable items={inventory} onDeleteItem={handleDeleteItem} />
           <DashboardChart data={monthlyPurchaseData} />
         </section>
