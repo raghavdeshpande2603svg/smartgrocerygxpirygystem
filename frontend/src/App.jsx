@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import StatCard from './components/StatCard';
 import UploadBillPanel from './components/UploadBillPanel';
 import InventoryTable from './components/InventoryTable';
@@ -140,19 +141,25 @@ export default function App() {
       purchaseData = null;
     }
 
-    const backup = {
-      exportedAt: new Date().toISOString(),
-      items: inventory,
-      purchaseData,
-    };
+    const vendors = purchaseData?.vendors || [];
+    const orders = purchaseData?.orders || [];
+    const vendorNames = new Map(vendors.map((vendor) => [vendor.id, vendor.name]));
+    const workbook = XLSX.utils.book_new();
 
-    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = 'smart-grocery-backup.json';
-    anchor.click();
-    URL.revokeObjectURL(url);
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(inventory), 'Inventory');
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(vendors), 'Vendors');
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(orders.map((order) => ({
+      ...order,
+      vendorName: vendorNames.get(order.vendorId) || 'Unknown vendor',
+    }))), 'Purchase Orders');
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet([{
+      exportedAt: new Date().toISOString(),
+      inventoryItems: inventory.length,
+      vendors: vendors.length,
+      purchaseOrders: orders.length,
+    }]), 'Backup Info');
+
+    XLSX.writeFile(workbook, 'smart-grocery-backup.xlsx');
   }
 
   function handleImportInventory(event) {
