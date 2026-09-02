@@ -4,6 +4,7 @@ import UploadBillPanel from './components/UploadBillPanel';
 import InventoryTable from './components/InventoryTable';
 import DashboardChart from './components/DashboardChart';
 import AddItemModal from './components/AddItemModal';
+import PurchasePage from './components/PurchasePage';
 
 const STORAGE_KEY = 'smart-grocery-inventory-v1';
 const STORAGE_DEBOUNCE_MS = 1000; // Write to localStorage only every 1 second
@@ -24,6 +25,7 @@ const monthlyPurchaseData = [
 ];
 
 export default function App() {
+  const [activeView, setActiveView] = useState('dashboard');
   const [uploadResult, setUploadResult] = useState(null);
   const [showOCRResult, setShowOCRResult] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -69,6 +71,10 @@ export default function App() {
       avgCost: totalItems ? (totalCost / totalItems).toFixed(0) : 0,
     };
   }, [inventory]);
+
+  if (activeView === 'purchase') {
+    return <PurchasePage onBack={() => setActiveView('dashboard')} />;
+  }
 
   function addInventoryFromUpload(result) {
     const items = result?.items || [];
@@ -167,6 +173,13 @@ export default function App() {
             <h1 className="mt-2 text-3xl font-bold text-slate-800">Expiry Management Dashboard</h1>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveView('purchase')}
+              className="rounded-xl border border-teal-200 bg-teal-50 px-3 py-2 text-xs font-semibold text-teal-800 transition hover:bg-teal-100"
+            >
+              Purchase
+            </button>
             <button
               type="button"
               onClick={handleExportInventory}
