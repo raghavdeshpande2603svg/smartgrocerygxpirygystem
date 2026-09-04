@@ -6,8 +6,8 @@ const today = new Date().toISOString().slice(0, 10);
 
 const starterData = {
   vendors: [
-    { id: 'v1', name: 'Green Valley Farms', contact: 'Raj Kumar', phone: '+91 98765 43210', billPhoto: '' },
-    { id: 'v2', name: 'Daily Dairy Co.', contact: 'Meera Shah', phone: '+91 99887 66554', billPhoto: '' },
+    { id: 'v1', name: 'Green Valley Farms', contact: 'Raj Kumar', phone: '+91 98765 43210', billPhotos: [] },
+    { id: 'v2', name: 'Daily Dairy Co.', contact: 'Meera Shah', phone: '+91 99887 66554', billPhotos: [] },
   ],
   orders: [
     { id: 'po-1008', vendorId: 'v1', date: today, amount: 1840, status: 'Received', item: 'Vegetables and fruits', qty: 24, unit: 'kg', billPhoto: '' },
@@ -18,7 +18,15 @@ const starterData = {
 
 function readPurchases() {
   try {
-    return JSON.parse(localStorage.getItem(PURCHASES_KEY)) || starterData;
+    const saved = JSON.parse(localStorage.getItem(PURCHASES_KEY));
+    if (!saved) return starterData;
+    return {
+      ...saved,
+      vendors: (saved.vendors || []).map((vendor) => ({
+        ...vendor,
+        billPhotos: vendor.billPhotos || (vendor.billPhoto ? [{ id: `${vendor.id}-legacy`, data: vendor.billPhoto, date: today }] : []),
+      })),
+    };
   } catch {
     return starterData;
   }
@@ -37,6 +45,7 @@ export default function PurchasePage({ onBack }) {
   const [period, setPeriod] = useState('month');
   const [showVendorForm, setShowVendorForm] = useState(false);
   const [vendorForm, setVendorForm] = useState({ name: '', contact: '', phone: '' });
+  const [billDate, setBillDate] = useState(today);
   const [orderForm, setOrderForm] = useState({ item: '', qty: '', unit: 'kg', amount: '', date: today, status: 'Received' });
   const [notice, setNotice] = useState('');
 
@@ -77,7 +86,7 @@ export default function PurchasePage({ onBack }) {
   function handleAddVendor(event) {
     event.preventDefault();
     if (!vendorForm.name.trim()) return;
-    const vendor = { ...vendorForm, id: `v-${Date.now()}`, billPhoto: '' };
+    const vendor = { ...vendorForm, id: `v-${Date.now()}`, billPhotos: [] };
     persist({ ...data, vendors: [...data.vendors, vendor] });
     setSelectedVendorId(vendor.id);
     setVendorForm({ name: '', contact: '', phone: '' });
@@ -86,22 +95,25 @@ export default function PurchasePage({ onBack }) {
   }
 
   function handleBillPhoto(event) {
-    const file = event.target.files?.[0];
-    if (!file || !selectedVendor) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const vendors = data.vendors.map((vendor) => vendor.id === selectedVendor.id ? { ...vendor, billPhoto: String(reader.result) } : vendor);
+    const files = Array.from(event.target.files || []);
+    if (!files.length || !selectedVendor) return;
+    Promise.all(files.map((file) => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve({ id: `bill-${Date.now()}-${file.name}`, data: String(reader.result), date: billDate, name: file.name });
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    }))).then((newPhotos) => {
+      const vendors = data.vendors.map((vendor) => vendor.id === selectedVendor.id ? { ...vendor, billPhotos: [...(vendor.billPhotos || []), ...newPhotos] } : vendor);
       persist({ ...data, vendors });
-      setNotice('Bill photo saved to this vendor profile.');
-    };
-    reader.readAsDataURL(file);
+      setNotice(`${newPhotos.length} bill image${newPhotos.length === 1 ? '' : 's'} saved to this vendor profile.`);
+    });
     event.target.value = '';
   }
 
   function handleAddOrder(event) {
     event.preventDefault();
     if (!selectedVendor || !orderForm.item.trim() || !orderForm.amount) return;
-    const order = { ...orderForm, id: `po-${Date.now()}`, vendorId: selectedVendor.id, amount: Number(orderForm.amount), qty: Number(orderForm.qty || 0), billPhoto: selectedVendor.billPhoto };
+    const order = { ...orderForm, id: `po-${Date.now()}`, vendorId: selectedVendor.id, amount: Number(orderForm.amount), qty: Number(orderForm.qty || 0), billPhotos: selectedVendor.billPhotos || [] };
     persist({ ...data, orders: [order, ...data.orders] });
     setOrderForm({ item: '', qty: '', unit: 'kg', amount: '', date: today, status: 'Received' });
     setNotice('Purchase order added to the vendor ledger.');
@@ -148,8 +160,8 @@ export default function PurchasePage({ onBack }) {
 
           {selectedVendor && <div className="space-y-6">
             <section className="grid gap-6 lg:grid-cols-[1fr_300px]">
-              <div className="border border-slate-200 bg-white p-4 sm:p-6"><div className="flex flex-wrap items-start justify-between gap-4"><div className="min-w-0"><p className="text-xs font-bold uppercase tracking-[0.2em] text-teal-700">Vendor profile</p><h2 className="mt-2 break-words text-2xl font-semibold">{selectedVendor.name}</h2><p className="mt-2 break-words text-sm text-slate-500">{selectedVendor.contact || 'Contact not added'} · {selectedVendor.phone || 'Phone not added'}</p></div><label className="w-full cursor-pointer bg-teal-800 px-4 py-2 text-center text-sm font-semibold text-white hover:bg-teal-700 sm:w-auto">Upload bill photo<input type="file" accept="image/*" className="hidden" onChange={handleBillPhoto} /></label></div><div className="mt-6 grid gap-4 sm:grid-cols-3"><div className="bg-slate-50 p-4"><p className="text-xs text-slate-500">Vendor total</p><p className="mt-1 text-xl font-semibold">{currency(vendorOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0))}</p></div><div className="bg-slate-50 p-4"><p className="text-xs text-slate-500">Purchase orders</p><p className="mt-1 text-xl font-semibold">{vendorOrders.length}</p></div><div className="bg-slate-50 p-4"><p className="text-xs text-slate-500">Latest purchase</p><p className="mt-1 text-xl font-semibold">{vendorOrders[0]?.date || 'None'}</p></div></div></div>
-              <div className="flex min-h-[190px] items-center justify-center overflow-hidden border border-slate-200 bg-slate-100">{selectedVendor.billPhoto ? <img src={selectedVendor.billPhoto} alt={`${selectedVendor.name} bill`} className="h-full max-h-64 w-full object-contain" /> : <p className="px-6 text-center text-sm text-slate-500">No bill photo attached to this profile.</p>}</div>
+              <div className="border border-slate-200 bg-white p-4 sm:p-6"><div className="flex flex-wrap items-start justify-between gap-4"><div className="min-w-0"><p className="text-xs font-bold uppercase tracking-[0.2em] text-teal-700">Vendor profile</p><h2 className="mt-2 break-words text-2xl font-semibold">{selectedVendor.name}</h2><p className="mt-2 break-words text-sm text-slate-500">{selectedVendor.contact || 'Contact not added'} · {selectedVendor.phone || 'Phone not added'}</p></div><div className="flex w-full flex-wrap items-center gap-2 sm:w-auto"><label className="cursor-pointer bg-teal-800 px-4 py-2 text-center text-sm font-semibold text-white hover:bg-teal-700">Add bill images<input type="file" accept="image/*" multiple className="hidden" onChange={handleBillPhoto} /></label><label className="flex items-center gap-2 border border-slate-300 px-3 py-2 text-sm text-slate-600">Date<input type="date" value={billDate} onChange={(event) => setBillDate(event.target.value)} className="border-0 p-0 text-sm text-slate-800 outline-none" /></label></div></div><div className="mt-6 grid gap-4 sm:grid-cols-3"><div className="bg-slate-50 p-4"><p className="text-xs text-slate-500">Vendor total</p><p className="mt-1 text-xl font-semibold">{currency(vendorOrders.reduce((sum, order) => sum + Number(order.amount || 0), 0))}</p></div><div className="bg-slate-50 p-4"><p className="text-xs text-slate-500">Purchase orders</p><p className="mt-1 text-xl font-semibold">{vendorOrders.length}</p></div><div className="bg-slate-50 p-4"><p className="text-xs text-slate-500">Saved bill images</p><p className="mt-1 text-xl font-semibold">{selectedVendor.billPhotos?.length || 0}</p></div></div></div>
+              <div className="grid min-h-[190px] gap-3 border border-slate-200 bg-slate-100 p-3 sm:grid-cols-2">{selectedVendor.billPhotos?.length ? selectedVendor.billPhotos.map((photo) => <figure key={photo.id} className="overflow-hidden bg-white"><img src={photo.data} alt={`${selectedVendor.name} bill from ${photo.date}`} className="h-40 w-full object-contain" /><figcaption className="border-t border-slate-100 px-3 py-2 text-xs text-slate-500">{photo.date}</figcaption></figure>) : <p className="px-6 text-center text-sm text-slate-500">No bill images attached to this profile.</p>}</div>
             </section>
 
             <section className="border border-slate-200 bg-white p-4 sm:p-6"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-semibold">Manual stock taken form</h2><p className="mt-1 text-sm text-slate-500">Create a purchase order and keep the stock receipt tied to this vendor.</p></div>{notice && <p className="text-sm font-semibold text-teal-700">{notice}</p>}</div><form onSubmit={handleAddOrder} className="mt-5 grid gap-3 md:grid-cols-6"><input required placeholder="Product or stock taken" value={orderForm.item} onChange={(event) => setOrderForm({ ...orderForm, item: event.target.value })} className="min-w-0 border border-slate-300 px-3 py-2 text-sm md:col-span-2" /><input type="number" min="0" placeholder="Qty" value={orderForm.qty} onChange={(event) => setOrderForm({ ...orderForm, qty: event.target.value })} className="min-w-0 border border-slate-300 px-3 py-2 text-sm" /><select value={orderForm.unit} onChange={(event) => setOrderForm({ ...orderForm, unit: event.target.value })} className="min-w-0 border border-slate-300 px-3 py-2 text-sm"><option>kg</option><option>litres</option><option>packets</option><option>pcs</option></select><input required type="number" min="0" placeholder="Amount" value={orderForm.amount} onChange={(event) => setOrderForm({ ...orderForm, amount: event.target.value })} className="min-w-0 border border-slate-300 px-3 py-2 text-sm" /><input type="date" value={orderForm.date} onChange={(event) => setOrderForm({ ...orderForm, date: event.target.value })} className="min-w-0 border border-slate-300 px-3 py-2 text-sm" /><button type="submit" className="w-full bg-amber-400 px-4 py-2 text-sm font-bold text-slate-900 hover:bg-amber-300 md:col-span-6 md:w-auto md:justify-self-end">Add purchase order</button></form></section>
