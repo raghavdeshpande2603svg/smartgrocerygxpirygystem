@@ -1,0 +1,3 @@
+com\smartgrocery\service\BillProcessingServiceTest.class
+com\smartgrocery\service\CategoryMatchingAndExpiryServiceTest.class
+com\smartgrocery\service\OCRTextParserServiceTest.class

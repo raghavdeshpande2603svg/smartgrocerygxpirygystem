@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import StatCard from './components/StatCard';
 import UploadBillPanel from './components/UploadBillPanel';
 import InventoryTable from './components/InventoryTable';
 import DashboardChart from './components/DashboardChart';
 import AddItemModal from './components/AddItemModal';
+import PurchasePage from './components/PurchasePage';
 
 const STORAGE_KEY = 'smart-grocery-inventory-v1';
+const PURCHASES_STORAGE_KEY = 'smart-grocery-purchases-v1';
 const STORAGE_DEBOUNCE_MS = 1000; // Write to localStorage only every 1 second
 
 const defaultInventory = [
@@ -24,6 +27,7 @@ const monthlyPurchaseData = [
 ];
 
 export default function App() {
+  const [activeView, setActiveView] = useState('dashboard');
   const [uploadResult, setUploadResult] = useState(null);
   const [showOCRResult, setShowOCRResult] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -69,6 +73,10 @@ export default function App() {
       avgCost: totalItems ? (totalCost / totalItems).toFixed(0) : 0,
     };
   }, [inventory]);
+
+  if (activeView === 'purchase') {
+    return <PurchasePage onBack={() => setActiveView('dashboard')} />;
+  }
 
   function addInventoryFromUpload(result) {
     const items = result?.items || [];
@@ -125,17 +133,43 @@ export default function App() {
   }
 
   function handleBackupInventory() {
-    const backup = {
-      exportedAt: new Date().toISOString(),
-      items: inventory,
-    };
+    let purchaseData = null;
+    try {
+      const savedPurchases = localStorage.getItem(PURCHASES_STORAGE_KEY);
+      purchaseData = savedPurchases ? JSON.parse(savedPurchases) : null;
+    } catch {
+      purchaseData = null;
+    }
 
-    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const vendors = purchaseData?.vendors || [];
+    const orders = purchaseData?.orders || [];
+    const vendorNames = new Map(vendors.map((vendor) => [vendor.id, vendor.name]));
+    const workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(inventory), 'Inventory');
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(vendors), 'Vendors');
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(orders.map((order) => ({
+      ...order,
+      vendorName: vendorNames.get(order.vendorId) || 'Unknown vendor',
+    }))), 'Purchase Orders');
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet([{
+      exportedAt: new Date().toISOString(),
+      inventoryItems: inventory.length,
+      vendors: vendors.length,
+      purchaseOrders: orders.length,
+    }]), 'Backup Info');
+
+    const workbookBytes = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([workbookBytes], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = 'smart-grocery-backup.json';
+    anchor.download = 'smart-grocery-backup.xlsx';
+    document.body.appendChild(anchor);
     anchor.click();
+    anchor.remove();
     URL.revokeObjectURL(url);
   }
 
@@ -150,6 +184,9 @@ export default function App() {
         const importedItems = Array.isArray(parsed) ? parsed : parsed.items || [];
         if (!Array.isArray(importedItems) || !importedItems.length) return;
         setInventory(importedItems);
+        if (!Array.isArray(parsed) && parsed.purchaseData) {
+          localStorage.setItem(PURCHASES_STORAGE_KEY, JSON.stringify(parsed.purchaseData));
+        }
       } catch {
         // Ignore invalid file content.
       }
@@ -159,14 +196,21 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#f6fff2,_#eefaf0_30%,_#edf7ef_100%)] p-6 text-slate-800">
+    <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,_#f6fff2,_#eefaf0_30%,_#edf7ef_100%)] p-3 text-slate-800 sm:p-6">
       <div className="mx-auto max-w-7xl">
-        <header className="mb-6 flex items-center justify-between gap-4 rounded-[28px] border border-emerald-200 bg-white/80 p-5 shadow-[0_18px_45px_rgba(34,197,94,0.08)] backdrop-blur-sm">
-          <div>
+        <header className="mb-6 flex flex-col items-start gap-4 rounded-[28px] border border-emerald-200 bg-white/80 p-4 shadow-[0_18px_45px_rgba(34,197,94,0.08)] backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between sm:p-5">
+          <div className="min-w-0">
             <p className="text-sm font-semibold uppercase tracking-[0.28em] text-emerald-700">Smart Grocery</p>
-            <h1 className="mt-2 text-3xl font-bold text-slate-800">Expiry Management Dashboard</h1>
+            <h1 className="mt-2 text-2xl font-bold text-slate-800 sm:text-3xl">Expiry Management Dashboard</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+            <button
+              type="button"
+              onClick={() => setActiveView('purchase')}
+              className="rounded-xl border border-teal-200 bg-teal-50 px-3 py-2 text-xs font-semibold text-teal-800 transition hover:bg-teal-100"
+            >
+              Purchase
+            </button>
             <button
               type="button"
               onClick={handleExportInventory}
@@ -195,21 +239,21 @@ export default function App() {
             <button
               type="button"
               onClick={() => setIsModalOpen(true)}
-              className="rounded-xl bg-gradient-to-r from-emerald-600 to-lime-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/20 transition hover:translate-y-[-1px] hover:shadow-xl"
+              className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-lime-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/20 transition hover:translate-y-[-1px] hover:shadow-xl sm:w-auto"
             >
               + Add Item
             </button>
           </div>
         </header>
 
-        <section className="mb-6 grid gap-4 md:grid-cols-4">
+        <section className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
           <StatCard title="Total Items" value={String(dashboardStats.totalItems)} tone="green" />
           <StatCard title="Monthly Spend" value={`₹${dashboardStats.totalCost}`} tone="leaf" />
           <StatCard title="Expiring Soon" value={String(dashboardStats.expiringSoon)} tone="yellow" />
           <StatCard title="Avg Cost" value={`₹${dashboardStats.avgCost}`} tone="orange" />
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+        <section className="grid gap-6 md:grid-cols-[1.2fr_0.8fr]">
           <UploadBillPanel onUploadComplete={handleUploadComplete} />
           <div className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm">
             <h3 className="mb-4 text-lg font-semibold text-slate-800">Notifications</h3>
@@ -239,7 +283,7 @@ export default function App() {
           </div>
         </section>
 
-        <section className="mt-6 grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
+        <section className="mt-6 grid gap-6 md:grid-cols-[1.3fr_0.7fr]">
           <InventoryTable items={inventory} onDeleteItem={handleDeleteItem} />
           <DashboardChart data={monthlyPurchaseData} />
         </section>
